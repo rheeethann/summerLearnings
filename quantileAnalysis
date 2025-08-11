@@ -1,0 +1,402 @@
+
+import copy
+combined_dict_quant = copy.deepcopy(combined_dict_test)
+for i, (key, inner_dict) in enumerate(combined_dict_quant.items()):  
+    for i, (inner_key, sources) in enumerate(inner_dict.items()):
+        id_list = []
+        for source in sources['sources']:
+            id_list.append(source['src_id'])
+            
+        quantile,quantile_net,error,error_net = quantile_compute_groups(2,12,id_list)
+        sources['meta'][0]['quantile'] = []
+        sources['meta'][0]['quantile_net'] = []
+        sources['meta'][0]['error_net'] = []
+        #print(quantile)
+        sources['meta'][0]['quantile'].append({
+            'q25': quantile[0],
+            'q33': quantile[1],
+            'q50': quantile[2],
+            'q67': quantile[3],
+            'q75': quantile[4]
+        })
+        sources['meta'][0]['quantile_net'].append({
+            'q25': quantile_net[0],
+            'q33': quantile_net[1],
+            'q50': quantile_net[2],
+            'q67': quantile_net[3],
+            'q75': quantile_net[4]
+        })
+        sources['meta'][0]['error_net'].append({
+            'q25': error_net[0],
+            'q33': error_net[1],
+            'q50': error_net[2],
+            'q67': error_net[3],
+            'q75': error_net[4]
+        })
+import glob
+from scipy.interpolate import interp1d
+def quantile_compute(min_energy,max_energy,src_id):
+    
+    # ---- User-provided filenames ----
+    spec_files = glob.glob('test_script/' + str(src_id) + '/*SRSPEC*.FTZ')         # Your main source spectrum (.pha)
+    bkg_files = glob.glob('test_script/' + str(src_id) + '/*BGSPEC*.FTZ')        # Background spectrum (.pha)
+    rmf_files = glob.glob('test_script/' + str(src_id) + '/*.rmf')          # Response Matrix File (RMF) with EBOUNDS
+    # arf_file = 'ancillary.arf'       # (Not used directly here for energies)
+    flag = False
+    for file in spec_files:
+        if 'PN' in file:
+            spec_file = file
+            flag = True
+    if not flag:
+        for file in spec_files:
+            if 'M1' or 'M2' in file:
+                spec_file = file
+    
+    for file in bkg_files:
+        if 'PN' in file:
+            bkg_file = file
+    if not flag:
+        for file in bkg_files:
+            if 'M1' or 'M2' in file:
+                bkg_file = file
+                
+    for file in rmf_files:
+        if 'epn' in file:
+            rmf_file = file
+    if not flag:
+        for file in rmf_files:
+            if 'm1' or 'm2' in file:
+                rmf_file = file
+    # ---- Read source spectrum ----
+    with fits.open(spec_file) as hdul:
+        src_counts = hdul[1].data['COUNTS']   # Array of counts per channel
+        src_backscal = hdul[1].header.get('BACKSCAL')
+        # spec_channels = hdul[1].data['CHANNEL']  # (optional) Channel index
+
+    # ---- Read background spectrum ----
+    with fits.open(bkg_file) as hdul:
+        bkg_counts = hdul[1].data['COUNTS']
+
+    # ---- Read RMF EBOUNDS to get energy bin edges ----
+    with fits.open(rmf_file) as hdul:
+        ebounds = hdul['EBOUNDS'].data
+        e_min = ebounds['E_MIN']    # Lower bound of each energy bin (keV)
+        e_max = ebounds['E_MAX']    # Upper bound of each energy bin (keV)
+
+    # ---- Compute net counts, taking care not to allow negative photons ----
+    E_lo = min_energy
+    E_up = max_energy
+    net_counts = np.maximum(src_counts - bkg_counts, 0)
+    a_scal = src_backscal/bkg_backscal
+    a_scal = src_backscal/bkg_backscal
+    # ---- Calculate midpoints for each bin ----
+    energy_midpoints = (e_min + e_max) / 2  # In keV
+    energy_mask = (energy_midpoints >= E_lo) & (energy_midpoints <= E_up)
+    energy_midpoints_cut = energy_midpoints[energy_mask]
+    src_counts = src_counts[energy_mask]
+    bkg_counts = bkg_counts[energy_mask]
+    net_counts = src_counts - bkg_counts * a_scal
+    net_counts = np.floor(net_counts).astype(int)   # round down to integers
+    net_counts[net_counts < 0] = 0                  # set negative counts to zero
+    net_energies = np.repeat(energy_midpoints_cut, net_counts)
+    net_energies_sorted = np.sort(net_energies)
+    # ---- Save or print as needed ----
+    #print(net_energies_sorted[:20])       # Show first 20 for verification
+    print(f"Total photons after background subtraction: {len(net_energies_sorted)}")
+    # np.savetxt('ordered_energies.txt', photon_energies_sorted)
+    
+    '''if len(sorted_energies) <= 2:
+        print('Error')
+        quantile = [0,0,0,0,0]
+        return quantile
+    '''
+    N = len(net_energies_sorted)
+    #Quantile Levels
+    x = [25,33,50,67,75]
+    minimum = 2
+    quantile = []
+    error = []
+    quantile_net = []
+    error_net = []
+    for percent in x:
+        if percent == 33 or percent == 50 or percent == 67:
+            minimum = 2
+        else:
+            minimum = 3
+        if len(net_energies_sorted) <= minimum:
+            quantile.append(0)
+            quantile_net.append(0)
+            error_net.append(0)
+        else:
+            quantile_net.append((quantile_net_compute(net_energies_sorted, percent, a_scal, N)-E_lo)/(E_up-E_lo))
+            error_net.append(error_bars(net_energies_sorted,percent,src_counts,bkg_counts,E_lo,E_up))
+            i = ((percent/100)*(2*N)+1)/2
+            if isinstance(i, int):
+                energy = net_energies_sorted(i)
+            else:
+                i_low = int(np.floor(i))
+                percent_low = (2*i_low-1)*100/(2*N)
+                percent_high = (2*i_low+1)*100/(2*N)
+                if i_low+1 > len(net_energies_sorted)-1:
+                    energy = (net_energies_sorted[i_low])
+                else:
+                    energy = (net_energies_sorted[i_low] + net_energies_sorted[i_low+1])/2
+
+            quantile.append((energy-E_lo)/(E_up-E_lo))
+    
+    return quantile, quantile_net,error,error_net
+from scipy.interpolate import interp1d
+def quantile_net_compute(net_energies_sorted, x, a_scal, N):
+    energy_grid = np.unique(net_energies_sorted)
+    IC_above = N - np.searchsorted(net_energies_sorted, energy_grid, side='right')
+    IC_below = np.searchsorted(net_energies_sorted, energy_grid, side='left')
+    x_list = (N + IC_above - IC_below) / (2 * N)
+    x_unique, idx = np.unique(x_list, return_index=True)
+    energy_unique = energy_grid[idx]
+    interp_func = interp1d(x_unique[::-1], energy_unique[::-1], bounds_error=False, fill_value="extrapolate")
+    monotonic_increasing = np.all(np.diff(x_unique) > 0)
+    #print(monotonic_increasing)
+    #print(f"x min: {np.min(x_unique)}, max: {np.max(x_unique)}")
+    #print('Net counts:', N)
+    #print('Energy grid:', energy_grid.min(), energy_grid.max())
+    #print('IC_above:', IC_above[:5], '... IC_below:', IC_below[:5])
+    #print(interp_func(1-(x/100)))
+    return interp_func(1-(x/100))
+    
+import scipy.integrate as integrate
+import scipy.special as special
+from scipy.integrate import quad
+import math
+from scipy.special import gammaln
+def error_bars(sorted_energies,x,src_counts,bkg_counts,E_lo,E_up):
+    x = x/100
+    N = len(sorted_energies)
+    #print(N)
+    M = N*x+0.5
+    a = M-1
+    #print(a)
+    b = N-M
+    W = 0
+    C1 = 0
+    C2 = 0
+    #print(a,b,N)
+    factor = math.sqrt(1+(np.sum(bkg_counts)/np.sum(src_counts)))
+    def integrand(t,a,b):
+        return t**(a-1)*((1-t)**(b-1))
+
+    def beta_prefactor(a, b):
+        return np.exp(gammaln(a + b) - gammaln(a) - gammaln(b))
+    def B(a,b,i):
+        y = i/N
+        return beta_prefactor(a,b)*quad(integrand, 0, y, args=(a,b))[0]
+    
+    minimum = 0
+    if x == 50:
+        minimum = 3
+    elif x == 33 or x == 67:
+        minimum = 5
+    else:
+        minimum = 6
+    if len(sorted_energies) < minimum:
+        return 0
+    else:
+        for i,photon in enumerate(sorted_energies):
+            W = B(a,b,i+1)-B(a,b,i)
+            C1 = C1+W*photon
+            C2 = C2+W*(photon**2)
+        #print(C1, C2)
+        variance = C2 - C1**2
+        if variance > 0:
+            if N < 30:
+                sigma_Q = factor*math.sqrt(C2-C1**2)
+                if ((sigma_Q)/(E_up-E_lo)) > 1:
+                    print(((factor*math.sqrt(C2-C1**2))/(E_up-E_lo)))
+                    print(f"N={N}, factor={factor:.2f}, variance={variance:.4f}, sigma_E={math.sqrt(variance):.4f}, sigma_Q={sigma_Q:.4f}")
+                return ((sigma_Q)/(E_up-E_lo))
+            else: 
+                sigma_Q = math.sqrt(C2-C1**2)
+                if ((sigma_Q)/(E_up-E_lo)) > 1:
+                    print((sigma_Q)/(E_up-E_lo))
+                    print(f"N={N}, factor={factor:.2f}, variance={variance:.4f}, sigma_E={math.sqrt(variance):.4f}, sigma_Q={sigma_Q:.4f}")
+                return ((sigma_Q)/(E_up-E_lo))
+        else:
+            return 0
+import glob
+from scipy.interpolate import interp1d
+def quantile_compute_groups(min_energy,max_energy,src_id_list):
+    E_lo = min_energy
+    E_up = max_energy
+    src_cts_total = 0
+    bkg_cts_total = 0
+    rebinned = []
+    for src_id in src_id_list:
+        spec_files = glob.glob('test_script/' + str(src_id) + '/*SRSPEC*.FTZ')         # Your main source spectrum (.pha)
+        bkg_files = glob.glob('test_script/' + str(src_id) + '/*BGSPEC*.FTZ')        # Background spectrum (.pha)
+        rmf_files = glob.glob('test_script/' + str(src_id) + '/*.rmf') 
+        pn_flag = False
+        for file in rmf_files:
+            if 'PN' in file:
+                pn_flag = True
+                rmf_file = file
+                with fits.open(rmf_file) as hdul:
+                    ebounds = hdul['EBOUNDS'].data
+                    e_min = ebounds['E_MIN']    # Lower bound of each energy bin (keV)
+                    e_max = ebounds['E_MAX']    # Upper bound of each energy bin (keV)
+                if (np.max(e_min) >= E_up) & (np.min(e_min) <= E_lo) :
+                    common_energy_grid = e_min[(e_min >= E_lo) & (e_min <= E_up)]
+                elif (np.max(e_min) < E_up) & (np.min(e_min) > E_lo):
+                    common_energy_grid = e_min
+                    common_energy_grid.add(e_max[len(e_max)-1])
+                elif np.min(e_min) > E_lo:
+                    common_energy_grid = e_min[e_min <= E_up]
+                elif np.max(e_min) < E_up:
+                    common_energy_grid = e_min[e_min >= E_lo]
+                rebinned = np.zeros(len(common_energy_grid)-1)
+                rebinned_src = np.zeros(len(common_energy_grid)-1)
+                break
+        if pn_flag:
+            break
+                
+    if not pn_flag:
+        rmf_files = glob.glob('test_script/' + str(src_id_list[0]) + '/*.rmf') 
+        rmf_file = rmf_files[0]
+        with fits.open(rmf_file) as hdul:
+                ebounds = hdul['EBOUNDS'].data
+                e_min = ebounds['E_MIN']    # Lower bound of each energy bin (keV)
+                e_max = ebounds['E_MAX']    # Upper bound of each energy bin (keV)
+        if (np.max(e_min) >= E_up) & (np.min(e_min) <= E_lo) :
+            common_energy_grid = e_min[(e_min >= E_lo) & (e_min <= E_up)]
+        elif (np.max(e_min) < E_up) & (np.min(e_min) > E_lo):
+            common_energy_grid = e_min
+            common_energy_grid.add(e_max[len(e_max)-1])
+        elif np.min(e_min) > E_lo:
+            common_energy_grid = e_min[e_min <= E_up]
+        elif np.max(e_min) < E_up:
+            common_energy_grid = e_min[e_min >= E_lo]
+        rebinned = np.zeros(len(common_energy_grid)-1)
+        rebinned_src = np.zeros(len(common_energy_grid)-1)
+            
+    for src_id in src_id_list:    
+        # ---- User-provided filenames ----
+        spec_files = glob.glob('test_script/' + str(src_id) + '/*SRSPEC*.FTZ')         # Your main source spectrum (.pha)
+        bkg_files = glob.glob('test_script/' + str(src_id) + '/*BGSPEC*.FTZ')        # Background spectrum (.pha)
+        rmf_files = glob.glob('test_script/' + str(src_id) + '/*.rmf')          # Response Matrix File (RMF) with EBOUNDS
+        # arf_file = 'ancillary.arf'       # (Not used directly here for energies)
+        flag = False
+        for file in spec_files:
+            if 'PN' in file:
+                spec_file = file
+                flag = True
+        if not flag:
+            for file in spec_files:
+                if ('m1' in file.lower()) or ('m2' in file.lower()):
+                    spec_file = file
+
+        for file in bkg_files:
+            if 'PN' in file:
+                bkg_file = file
+        if not flag:
+            for file in bkg_files:
+                if ('m1' in file.lower()) or ('m2' in file.lower()):
+                    bkg_file = file
+
+        for file in rmf_files:
+            if 'epn' in file:
+                rmf_file = file
+        if not flag:
+            for file in rmf_files:
+                if ('m1' in file.lower()) or ('m2' in file.lower()):
+                    rmf_file = file
+        # ---- Read source spectrum ----
+        with fits.open(spec_file) as hdul:
+            src_counts = hdul[1].data['COUNTS']   # Array of counts per channel
+            src_backscal = hdul[1].header.get('BACKSCAL')
+            # spec_channels = hdul[1].data['CHANNEL']  # (optional) Channel index
+
+        # ---- Read background spectrum ----
+        with fits.open(bkg_file) as hdul:
+            bkg_counts = hdul[1].data['COUNTS']
+            bkg_backscal = hdul[1].header.get('BACKSCAL')
+
+        # ---- Read RMF EBOUNDS to get energy bin edges ----
+        with fits.open(rmf_file) as hdul:
+            ebounds = hdul['EBOUNDS'].data
+            e_min = ebounds['E_MIN']    # Lower bound of each energy bin (keV)
+            e_max = ebounds['E_MAX']    # Upper bound of each energy bin (keV)
+
+        # ---- Compute net counts, taking care not to allow negative photons ----
+        a_scal = src_backscal/bkg_backscal
+        # ---- Calculate midpoints for each bin ----
+        energy_midpoints = (e_min + e_max) / 2  # In keV
+        energy_mask = (energy_midpoints >= E_lo) & (energy_midpoints <= E_up)
+        energy_midpoints_cut = energy_midpoints[energy_mask]
+        src_counts = src_counts[energy_mask]
+        bkg_counts = bkg_counts[energy_mask]
+        src_cts_total = src_cts_total + src_counts
+        bkg_cts_total = bkg_cts_total + bkg_counts
+        net_counts = src_counts - bkg_counts * a_scal
+        net_counts = np.floor(net_counts).astype(int)   # round down to integers
+        src_counts = np.floor(src_counts).astype(int)
+        net_counts[net_counts < 0] = 0                  # set negative counts to zero
+        src_counts[src_counts < 0] = 0
+        #net_energies = np.repeat(energy_midpoints_cut, net_counts)
+        #net_energies_sorted = np.sort(net_energies)
+        rebinned = rebinned + rebin_to_grid(energy_midpoints_cut,net_counts,common_energy_grid)
+        rebinned_src = rebinned_src + rebin_to_grid(energy_midpoints_cut,src_counts,common_energy_grid)
+    
+    energy_midpoints = (common_energy_grid[:-1] + common_energy_grid[1:]) / 2
+    net_energies = np.repeat(energy_midpoints, rebinned.astype(int))
+    src_energies = np.repeat(energy_midpoints, rebinned_src.astype(int))
+    net_energies_sorted = np.sort(net_energies)
+    src_energies_sorted = np.sort(src_energies)
+    
+    # ---- Save or print as needed ----
+    #print(net_energies_sorted[:20])       # Show first 20 for verification
+    print(f"Total photons after background subtraction: {len(net_energies_sorted)}")
+    # np.savetxt('ordered_energies.txt', photon_energies_sorted)
+    
+    '''if len(sorted_energies) <= 2:
+        print('Error')
+        quantile = [0,0,0,0,0]
+        return quantile
+    '''
+    N = len(net_energies_sorted)
+    #Quantile Levels
+    x = [25,33,50,67,75]
+    minimum = 2
+    quantile = []
+    error = []
+    quantile_net = []
+    error_net = []
+    for percent in x:
+        if percent == 33 or percent == 50 or percent == 67:
+            minimum = 2
+        else:
+            minimum = 3
+        if len(net_energies_sorted) <= minimum:
+            quantile.append(0)
+            quantile_net.append(0)
+            error_net.append(0)
+        else:
+            quantile_net.append((quantile_net_compute(net_energies_sorted, percent, a_scal, N)-E_lo)/(E_up-E_lo))
+            error_net.append(error_bars(src_energies_sorted,percent,src_cts_total,bkg_cts_total,E_lo,E_up))
+            i = ((percent/100)*(2*N)+1)/2
+            if i.is_integer():
+                energy = net_energies_sorted[int(i)]
+            else:
+                i_low = int(np.floor(i))
+                percent_low = (2*i_low-1)*100/(2*N)
+                percent_high = (2*i_low+1)*100/(2*N)
+                if i_low+1 > len(net_energies_sorted)-1:
+                    energy = (net_energies_sorted[i_low])
+                else:
+                    energy = (net_energies_sorted[i_low] + net_energies_sorted[i_low+1])/2
+
+            quantile.append((energy-E_lo)/(E_up-E_lo))
+    
+    return quantile, quantile_net,error,error_net
+def rebin_to_grid(channel_energies, counts, common_grid_edges):
+    # channel_energies = centers or midpoints (or use bin min/max for precise binning)
+    # counts = total events in each channel
+    rebinned, _ = np.histogram(channel_energies, bins=common_grid_edges, weights=counts)
+    return rebinned
