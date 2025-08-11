@@ -1,0 +1,1605 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.table import Table
+from astropy.io import fits
+
+import astropy
+import scipy
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+hdul = fits.open('XMM_DR14_survey.fits')
+data = hdul[1].data
+
+#Coordinates
+xmmDR14_id = data['SrcID']
+xmmDR14_detid = data['DetID']
+xmmDR14_l = data['LII']
+xmmDR14_b = data['BII']
+xmmDR14_ra = data['RA']
+xmmDR14_dec = data['Dec']
+xmmDR14_poserr = data['POSERR']
+xmmDR14_nn = data['Dist_NN']
+xmmDR14_l = np.where(xmmDR14_l < 180, xmmDR14_l, xmmDR14_l-360)
+
+#detection max likelihood
+xmmDR14_detml = data['EP_8_DET_ML']
+xmmDR14_PNdetml4 = data['PN_4_DET_ML']
+xmmDR14_PNdetml5 = data['PN_5_DET_ML']
+xmmDR14_M1detml4 = data['M1_4_DET_ML']
+xmmDR14_M1detml5 = data['M1_5_DET_ML']
+xmmDR14_M2detml4 = data['M2_4_DET_ML']
+xmmDR14_M2detml5 = data['M2_5_DET_ML']
+
+#flux
+xmmDR14_fxhalfto1 = data['EP_2_Flux']
+xmmDR14_fx1to2 = data['EP_3_Flux']
+xmmDR14_fx2to4 = data['EP_4_Flux']
+xmmDR14_fx4to12 = data['EP_5_Flux']
+xmmDR14_fxhalfto1err = data['EP_2_Flux_Err']
+xmmDR14_fx1to2err = data['EP_3_Flux_Err']
+xmmDR14_fx2to4err = data['EP_4_Flux_Err']
+xmmDR14_fx4to12err = data['EP_5_Flux_Err']
+
+#count rates
+xmmDR14_PNrthalfto1 = data['PN_2_Rate']
+xmmDR14_PNrt1to2 = data['PN_3_Rate']
+xmmDR14_PNrt2to4 = data['PN_4_Rate']
+xmmDR14_PNrt4to12 = data['PN_5_Rate']
+xmmDR14_PNrthalfto1err = data['PN_2_Rate_Err']
+xmmDR14_PNrt1to2err = data['PN_3_Rate_Err']
+xmmDR14_PNrt2to4err = data['PN_4_Rate_Err']
+xmmDR14_PNrt4to12err = data['PN_5_Rate_Err']
+xmmDR14_M1rthalfto1 = data['M1_2_Rate']
+xmmDR14_M1rt1to2 = data['M1_3_Rate']
+xmmDR14_M1rt2to4 = data['M1_4_Rate']
+xmmDR14_M1rt4to12 = data['M1_5_Rate']
+xmmDR14_M1rthalfto1err = data['M1_2_Rate_Err']
+xmmDR14_M1rt1to2err = data['M1_3_Rate_Err']
+xmmDR14_M1rt2to4err = data['M1_4_Rate_Err']
+xmmDR14_M1rt4to12err = data['M1_5_Rate_Err']
+xmmDR14_M2rthalfto1 = data['M2_2_Rate']
+xmmDR14_M2rt1to2 = data['M2_3_Rate']
+xmmDR14_M2rt2to4 = data['M2_4_Rate']
+xmmDR14_M2rt4to12 = data['M2_5_Rate']
+xmmDR14_M2rthalfto1err = data['M2_2_Rate_Err']
+xmmDR14_M2rt1to2err = data['M2_3_Rate_Err']
+xmmDR14_M2rt2to4err = data['M2_4_Rate_Err']
+xmmDR14_M2rt4to12err = data['M2_5_Rate_Err']
+
+#exposure maps
+xmmDR14_PNexphalfto1 = data['PN_2_Exp']
+xmmDR14_PNexp1to2 = data['PN_3_Exp']
+xmmDR14_PNexp2to4 = data['PN_4_Exp']
+xmmDR14_PNexp4to12 = data['PN_5_Exp']
+xmmDR14_M1exphalfto1 = data['M1_2_Exp']
+xmmDR14_M1exp1to2 = data['M1_3_Exp']
+xmmDR14_M1exp2to4 = data['M1_4_Exp']
+xmmDR14_M1exp4to12 = data['M1_5_Exp']
+xmmDR14_M2exphalfto1 = data['M2_2_Exp']
+xmmDR14_M2exp1to2 = data['M2_3_Exp']
+xmmDR14_M2exp2to4 = data['M2_4_Exp']
+xmmDR14_M2exp4to12 = data['M2_5_Exp']
+xmmDR14_EPexp4to12 = np.nansum(np.stack((xmmDR14_PNexp4to12,xmmDR14_M1exp4to12,xmmDR14_M2exp4to12)), axis=0)
+
+#flags
+xmmDR14_flag = data['Sum_Flag']
+xmmDR14_ext = data['EP_Extent']
+xmmDR14_conf = data['Confused']
+xmmDR14_PNfl = data['PN_Flag']
+xmmDR14_M1fl = data['M1_Flag']
+xmmDR14_M2fl = data['M2_Flag']
+xmmDR14_EPfl = data['EP_Flag']
+xmmDR14_PNpu = data['PN_Pileup']
+xmmDR14_M1pu = data['M1_Pileup']
+xmmDR14_M2pu = data['M2_Pileup']
+
+#supplementary data
+xmmDR14_lc = data['Tseries']
+xmmDR14_spec = data['Spectra']
+spectra_true = np.where(data['Spectra'])[0]  
+
+#multiple detections
+xmmDR14_var = data['Var_Flag']
+xmmDR14_ndet = data['N_DETECTIONS']
+xmmDR14_sra = data['SC_RA']
+xmmDR14_sdec = data['SC_Dec']
+xmmDR14_sposerr = data['SC_POSERR']
+xmmDR14_sdetml = data['SC_Det_ML']
+xmmDR14_sfxhalfto1 = data['SC_EP_2_FLUX']
+xmmDR14_sfx1to2 = data['SC_EP_3_FLUX']
+xmmDR14_sfx2to4 = data['SC_EP_4_FLUX']
+xmmDR14_sfx4to12 = data['SC_EP_5_FLUX']
+xmmDR14_sfxhalfto1err = data['SC_EP_2_FLUX_ERR']
+xmmDR14_sfx1to2err = data['SC_EP_3_FLUX_ERR']
+xmmDR14_sfx2to4err = data['SC_EP_4_FLUX_ERR']
+xmmDR14_sfx4to12err = data['SC_EP_5_FLUX_ERR']
+
+#counts
+xmmDR14_PNctshalfto1 = xmmDR14_PNrthalfto1*xmmDR14_PNexphalfto1
+xmmDR14_PNcts1to2 = xmmDR14_PNrt1to2*xmmDR14_PNexp1to2
+xmmDR14_PNcts2to4 = xmmDR14_PNrt2to4*xmmDR14_PNexp2to4
+xmmDR14_PNcts4to12 = xmmDR14_PNrt4to12*xmmDR14_PNexp4to12
+xmmDR14_M1ctshalfto1 = xmmDR14_M1rthalfto1*xmmDR14_M1exphalfto1
+xmmDR14_M1cts1to2 = xmmDR14_M1rt1to2*xmmDR14_M1exp1to2
+xmmDR14_M1cts2to4 = xmmDR14_M1rt2to4*xmmDR14_M1exp2to4
+xmmDR14_M1cts4to12 = xmmDR14_M1rt4to12*xmmDR14_M1exp4to12
+xmmDR14_M2ctshalfto1 = xmmDR14_M2rthalfto1*xmmDR14_M2exphalfto1
+xmmDR14_M2cts1to2 = xmmDR14_M2rt1to2*xmmDR14_M2exp1to2
+xmmDR14_M2cts2to4 = xmmDR14_M2rt2to4*xmmDR14_M2exp2to4
+xmmDR14_M2cts4to12 = xmmDR14_M2rt4to12*xmmDR14_M2exp4to12
+xmmDR14_EPcts1to2 = np.nansum(np.stack((xmmDR14_PNcts4to12,xmmDR14_M1cts4to12,xmmDR14_M2cts4to12)), axis=0)
+xmmDR14_EPcts2to4 = np.nansum(np.stack((xmmDR14_PNcts2to4,xmmDR14_M1cts2to4,xmmDR14_M2cts2to4)), axis=0)
+xmmDR14_EPcts4to12 = np.nansum(np.stack((xmmDR14_PNcts1to2,xmmDR14_M1cts1to2,xmmDR14_M2cts1to2)), axis=0)
+
+#chi squared
+xmmDR14_PNchi2prob = data['PN_Chi2prob']
+xmmDR14_M1chi2prob = data['M1_Chi2prob']
+xmmDR14_M2chi2prob = data['M2_Chi2prob']
+
+#8 cts
+xmmDR14_8cts = data['EP_8_Cts']
+xmmDR14_PN8cts = data['PN_8_Cts']
+xmmDR14_M18cts = data['M1_8_Cts']
+xmmDR14_M28cts = data['M2_8_Cts']
+hdul.close()
+
+xmmDR14_EPhr4 = data['EP_HR4']
+xmmDR14_EPhr3 = data['EP_HR3']
+xmmDR14_EPhr2 = data['EP_HR2']
+xmmDR14_PNhr4 = data['PN_HR4']
+xmmDR14_M1hr4 = data['M1_HR4']
+xmmDR14_M2hr4 = data['M2_HR4']
+
+xmmDR14_PNFvar = data['PN_Fvar']
+xmmDR14_M1Fvar = data['M1_Fvar']
+xmmDR14_M2Fvar = data['M2_Fvar']
+xmmDR14_Varflag = data['Var_Flag']
+xmmDR14_SC_Varflag = data['SC_Var_Flag']
+#add up EPIC PN/MOS1/MOS2 count rates
+xmmDR14_EPrt2to4 = np.nansum(np.stack((xmmDR14_PNrt2to4,xmmDR14_M1rt2to4,xmmDR14_M2rt2to4)), axis=0)
+xmmDR14_EPrt4to12 = np.nansum(np.stack((xmmDR14_PNrt4to12,xmmDR14_M1rt4to12,xmmDR14_M2rt4to12)), axis=0)
+xmmDR14_EPrt2to12 = np.nansum(np.stack((xmmDR14_EPrt2to4,xmmDR14_EPrt4to12)), axis=0)
+
+#add errors in quadrature
+xmmDR14_EPrt2to4_err = np.sqrt(np.nansum(np.stack((xmmDR14_PNrt2to4err**2,xmmDR14_M1rt2to4err**2,xmmDR14_M2rt2to4err**2)), axis=0))
+xmmDR14_EPrt4to12_err = np.sqrt(np.nansum(np.stack((xmmDR14_PNrt4to12err**2,xmmDR14_M1rt4to12err**2,xmmDR14_M2rt4to12err**2)), axis=0))
+xmmDR14_EPcts2to4_err = np.sqrt(np.nansum(np.stack(((xmmDR14_PNrt2to4err*xmmDR14_PNexp2to4)**2,(xmmDR14_M1rt2to4err*xmmDR14_M1exp2to4)**2,(xmmDR14_M2rt2to4err*xmmDR14_M2exp2to4)**2)), axis=0))
+xmmDR14_EPcts4to12_err = np.sqrt(np.nansum(np.stack(((xmmDR14_PNrt4to12err*xmmDR14_PNexp4to12)**2,(xmmDR14_M1rt4to12err*xmmDR14_M1exp4to12)**2,(xmmDR14_M2rt4to12err*xmmDR14_M2exp4to12)**2)), axis=0))
+#Sgr A*
+sgra_ra, sgra_dec = 266.41683708333335, -29.007810555555555
+sgrrad = np.sqrt((sgra_ra-xmmDR14_ra)**2 + (sgra_dec-xmmDR14_dec)**2) #approximate distance to Sgr A*
+#calculate APPROXIMATE distance (accurate for small distances)
+def dist(ra1, dec1, ra2, dec2):
+    return(np.sqrt((ra2-ra1)**2 + (dec2-dec1)**2))
+#Stray light sources
+#GX 3+1
+gxra, gxdec = 266.983330, -26.563610
+# second stray light source: 354.28, -0.17
+sl2ra, sl2dec = 262.9945537, -33.8641678
+sl3ra, sl3dec = 270.25, -25.05 #estimated
+def hr(h, s):
+    return((h-s)/(h+s))
+
+#hardness ratio: (4to12 - 2to4)/(4to12 + 2to4) [similar to HR2, except 4to12 vs 4to8]
+PNhr2 = hr(xmmDR14_PNrt4to12, xmmDR14_PNrt2to4)
+M1hr2 = hr(xmmDR14_M1rt4to12, xmmDR14_M1rt2to4)
+M2hr2 = hr(xmmDR14_M2rt4to12, xmmDR14_M2rt2to4)
+#combined EPIC HR
+EPhr2_avg = np.nanmean(np.vstack((PNhr2, M1hr2, M2hr2)), axis=0)
+EPhr2 = hr(np.nansum(np.stack((xmmDR14_PNrt4to12,xmmDR14_M1rt4to12,xmmDR14_M2rt4to12)), axis=0), 
+          np.nansum(np.stack((xmmDR14_PNrt2to4,xmmDR14_M1rt2to4,xmmDR14_M2rt2to4)), axis=0))
+#EPhr2 = hr(xmmDR14_PNrt4to12+xmmDR14_M1rt4to12+xmmDR14_M2rt4to12, xmmDR14_PNrt2to4+xmmDR14_M1rt2to4+xmmDR14_M2rt2to4)
+
+#hardness ratio: (2to12 - 0.5to2)/(2to12 + 0.5to2) 
+PNhr1 = hr(xmmDR14_PNrt4to12+xmmDR14_PNrt2to4,xmmDR14_PNrthalfto1+xmmDR14_PNrt1to2)
+M1hr1 = hr(xmmDR14_M1rt4to12+xmmDR14_M1rt2to4,xmmDR14_M1rthalfto1+xmmDR14_M1rt1to2)
+M2hr1 = hr(xmmDR14_M2rt4to12+xmmDR14_M2rt2to4,xmmDR14_M2rthalfto1+xmmDR14_M2rt1to2)
+#combined EPIC HR
+EPhr1 = hr(np.nansum(np.stack((xmmDR14_PNrt4to12,xmmDR14_M1rt4to12,xmmDR14_M2rt4to12,xmmDR14_PNrt2to4,xmmDR14_M1rt2to4,xmmDR14_M2rt2to4)), axis=0), 
+          np.nansum(np.stack((xmmDR14_PNrthalfto1+xmmDR14_PNrt1to2+xmmDR14_M1rthalfto1+xmmDR14_M1rt1to2+xmmDR14_M2rthalfto1+xmmDR14_M2rt1to2)), axis=0))
+#hr(xmmDR14_PNrt4to12+xmmDR14_PNrt2to4+xmmDR14_M1rt4to12+xmmDR14_M1rt2to4+xmmDR14_M2rt4to12+xmmDR14_M2rt2to4,xmmDR14_PNrthalfto1+xmmDR14_PNrt1to2+xmmDR14_M1rthalfto1+xmmDR14_M1rt1to2+xmmDR14_M2rthalfto1+xmmDR14_M2rt1to2)
+
+#Muno: H is 2.0-3.3keV, L is 0.5-2.0keV; foreground is -1 < hr0 < -0.175.  Here: H is 2-4 keV
+PNhr0 = hr(xmmDR14_PNrt2to4,xmmDR14_PNrthalfto1+xmmDR14_PNrt1to2)
+M1hr0 = hr(xmmDR14_M1rt2to4,xmmDR14_M1rthalfto1+xmmDR14_M1rt1to2)
+M2hr0 = hr(xmmDR14_M2rt2to4,xmmDR14_M2rthalfto1+xmmDR14_M2rt1to2)
+#combined EPIC HR
+EPhr0 = hr(np.nansum(np.stack((xmmDR14_PNrt2to4,xmmDR14_M1rt2to4,xmmDR14_M2rt2to4)), axis=0), 
+          np.nansum(np.stack((xmmDR14_PNrthalfto1+xmmDR14_PNrt1to2+xmmDR14_M1rthalfto1+xmmDR14_M1rt1to2+xmmDR14_M2rthalfto1+xmmDR14_M2rt1to2)), axis=0))
+#hr(xmmDR14_PNrt2to4+xmmDR14_M1rt2to4+xmmDR14_M2rt2to4,xmmDR14_PNrthalfto1+xmmDR14_PNrt1to2+xmmDR14_M1rthalfto1+xmmDR14_M1rt1to2+xmmDR14_M2rthalfto1+xmmDR14_M2rt1to2)
+
+def hr_err(h,s, dh, ds):
+    hr_0 = hr(h, s)
+    hr_h = hr(h+dh, s)
+    hr_s = hr(h, s+ds)
+    return(np.sqrt((hr_s-hr_0)**2 + (hr_h-hr_0)**2))
+
+#use counts to define uncertainty
+#combine EPIC counts
+Hstack = np.nansum(np.stack((xmmDR14_PNcts4to12,xmmDR14_M1cts4to12,xmmDR14_M2cts4to12)), axis=0)
+Sstack = np.nansum(np.stack((xmmDR14_PNcts2to4,xmmDR14_M1cts2to4,xmmDR14_M2cts2to4)), axis=0)
+dHstack = xmmDR14_EPcts4to12_err
+dSstack = xmmDR14_EPcts2to4_err
+hr2err = hr_err(Hstack, Sstack, dHstack, dSstack)
+#initial filter for flagged/extended sources
+xmmDR14_flfilt = np.where((xmmDR14_flag == 0) & (xmmDR14_ext == 0) & (xmmDR14_conf == False))[0]
+
+#calculate nearest neighbor
+nndist_all = np.zeros(np.size(xmmDR14_ra)) #distance to nearest neighbor in arcsec
+for i in range(np.size(xmmDR14_ra)):
+    idist = dist(xmmDR14_ra, xmmDR14_dec, xmmDR14_ra[i], xmmDR14_dec[i])
+    nndist_all[i] = 3600*idist[np.argsort(idist)[1]]
+    
+#filter out duplicates:
+
+nndist_min = 6    #min distance [arcsec] for two sources to be considered distinct
+
+duplist = np.zeros(np.size(xmmDR14_ndet))  #check for duplicates & find longest exposure (discard others)
+for i in range(np.size(xmmDR14_flfilt)):
+    if (xmmDR14_ndet[xmmDR14_flfilt[i]] > 1) and (duplist[xmmDR14_flfilt[i]] == 0):
+        ilist = np.where(xmmDR14_id == xmmDR14_id[xmmDR14_flfilt[i]])[0]  #list of all entries with same src id
+        jlist = np.where((xmmDR14_flag[ilist] == 0) & (xmmDR14_ext[ilist] == 0) & (xmmDR14_conf[ilist] == False))[0]
+        ibest = np.argmax(xmmDR14_EPexp4to12[ilist[jlist]])  #select entry w/ highest exposure map
+        #print(ibest)
+        duplist[ilist] = 1
+        duplist[ilist[jlist[ibest]]] = 10
+        
+#preliminary filter        
+glist_prelim = np.where((xmmDR14_flag == 0) & (xmmDR14_ext == 0) & (xmmDR14_conf == False) & 
+                         ((xmmDR14_ndet == 1) | (duplist == 10)))[0]
+    
+#re-calculate NN for "filtered" sources
+nndist_filt = np.zeros(np.size(glist_prelim)) #distance to nearest neighbor in arcsec
+for i in range(np.size(glist_prelim)):
+    idist = dist(xmmDR14_ra[glist_prelim], xmmDR14_dec[glist_prelim], xmmDR14_ra[glist_prelim][i], xmmDR14_dec[glist_prelim][i])
+    nndist_filt[i] = 3600*idist[np.argsort(idist)[1]]
+
+duplist2 = np.zeros(np.size(glist_prelim))
+for i in range(np.size(glist_prelim)):
+    if nndist_filt[i] < nndist_min:
+        ilist2 = np.where(3600*dist(xmmDR14_ra[glist_prelim], xmmDR14_dec[glist_prelim], xmmDR14_ra[glist_prelim][i], xmmDR14_dec[glist_prelim][i]) < nndist_min)[0]  #list of filtered entries with distance < min, including self
+        ibest2 = np.argmax(xmmDR14_EPexp4to12[glist_prelim][ilist2])  #select entry w/ highest exposure map
+        #print(ibest)
+        duplist2[ilist2] = 1
+        duplist2[ilist2[ibest2]] = 10
+    
+#final "clean" source list
+x = glist_prelim[np.where((nndist_filt > 6) | (duplist2 == 10))]
+z = x[np.in1d(x, spectra_true)]
+fx2to4 = xmmDR14_fx2to4[z]
+fx4to12 = xmmDR14_fx4to12[z]
+
+mask = (fx2to4 != 0) | (fx4to12 != 0)
+print(len(mask))
+y = z[mask]
+from astropy.io import fits
+from astropy.table import Table
+len(y)
+hdul1 = fits.open('XMM_DR14_survey.fits')
+tbl = Table(hdul1[1].data)          # now you have an Astropy Table
+hdr = hdul1[1].header               # save the header if you like
+hdul1.close()
+filtered = tbl[y]
+filtered.write('filtered_XMM_DR14.fits',
+               format='fits',
+               overwrite=True)
+hdul2 = fits.open('filtered_XMM_DR14.fits')
+data2 = hdul2[1].data
+PNdetml4 = xmmDR14_PNdetml4[y]
+PNdetml5 = xmmDR14_PNdetml5[y]
+M1detml4 = xmmDR14_M1detml4[y]
+M1detml5 = xmmDR14_M1detml5[y]
+M2detml4 = xmmDR14_M2detml4[y]
+M2detml5 = xmmDR14_M2detml5[y]
+PNchi2prob = xmmDR14_PNchi2prob[y]
+M1chi2prob = xmmDR14_M1chi2prob[y]
+M2chi2prob = xmmDR14_M2chi2prob[y]
+xmm_8cts = xmmDR14_8cts[y]
+PN8cts = xmmDR14_PN8cts[y]
+M18cts = xmmDR14_M18cts[y]
+M28cts = xmmDR14_M28cts[y]
+
+fxhalfto1 = xmmDR14_fxhalfto1[y]
+fx1to2 = xmmDR14_fx1to2[y]
+fx2to4 = xmmDR14_fx2to4[y]
+fx4to12 = xmmDR14_fx4to12[y]
+SrcID_filt=xmmDR14_id[y]
+DetID_filt=xmmDR14_detid[y]
+xmmDR14_obsid=data['OBS_ID']
+ObsID_filt=xmmDR14_obsid[y]
+l_filt = xmmDR14_l[y]
+b_filt = xmmDR14_b[y]
+sra = xmmDR14_sra[y]
+sdec = xmmDR14_sdec[y]
+sposerr = xmmDR14_sposerr[y]
+
+fx2to12 = []
+for i,data in enumerate(y):
+    fx2to12.append(fx2to4[i] + fx4to12[i])
+    if fx2to12[i] == 0:
+        print(i)
+#load all points with coordinates
+import numpy as np
+source_fits  = 'filtered_XMM_DR14.fits'   # catalog with GLON, GLAT columns
+src    = Table.read(source_fits)
+# Option A: raw floats → N×2 array
+points = [(float(l), float(b)) for l, b in zip(src['LII'], src['BII'])]
+len(points)
+#fill in gaps in nH file
+from astropy.io import fits
+import numpy as np
+from scipy.interpolate import griddata
+
+# 1) Load your map
+hdu = fits.open('nH_analysis/column_density_inner20deg.fits')
+data = hdu[0].data
+hdr  = hdu[0].header
+
+# 2) Build a mask of the NaNs
+y, x = np.indices(data.shape)
+mask = np.isnan(data)
+
+# 3) Interpolate the NaNs from their valid neighbors
+#    Here we use nearest‐neighbor to avoid overshoot; 
+#    you can choose 'linear' or 'cubic' if you like.
+filled_vals = griddata(
+    (x[~mask], y[~mask]), 
+    data[~mask], 
+    (x[mask], y[mask]),
+    method='nearest'
+)
+data[mask] = filled_vals
+
+# 4) Write out a new FITS with no NaNs
+hdu[0].data = data
+hdu.writeto('nh_map_filled.fits', overwrite=True)
+#absorption contour grouping
+import numpy as np
+from astropy.io import fits
+from matplotlib.path import Path
+import os
+
+def load_contours(fits_path):
+    with fits.open(fits_path) as hdul:
+        region_hdu = hdul['REGION']
+        contour_data = region_hdu.data
+        
+        contours = []
+        for i, row in enumerate(contour_data):
+            xs = row['X']
+            ys = row['Y']
+            
+            # Apply WCS transformation - USE YOUR ACTUAL CRPIX VALUES
+            l_coords = -0.0032 * (np.array(xs) - 3164.0)  # Adjust CRPIX1
+            b_coords = 0.0032 * (np.array(ys) - 319.0)    # Adjust CRPIX2
+            
+            vertices = np.column_stack((l_coords, b_coords))
+            if len(vertices) > 0 and not np.array_equal(vertices[0], vertices[-1]):
+                vertices = np.vstack([vertices, vertices[0]])
+            
+            contours.append({
+                'index': i,
+                'level': row['CONTOUR_LEVEL'],
+                'vertices': vertices,
+                'vertex_count': len(vertices),
+                'sources': []
+            })
+    
+    return contours
+
+def normalize_coordinates(sources):
+    normalized_sources = []
+    for source_l, source_b in sources:
+        if source_l > 180:
+            norm_l = source_l - 360
+        else:
+            norm_l = source_l
+        normalized_sources.append((norm_l, source_b))
+    return normalized_sources
+
+
+def assign_sources_to_contours(sources, contours):
+    normalized_sources = normalize_coordinates(sources)
+    unassigned = []
+    
+    # CORRECTED SORTING: Highest level first, then smallest contours first
+    sorted_contours = sorted(contours, key=lambda c: (-c['level'], c['vertex_count']))
+    assigned = [False] * len(sources)
+    
+    for contour in sorted_contours:
+        path = Path(contour['vertices'])
+        
+        for source_idx, (source_l, source_b) in enumerate(sources):
+            if assigned[source_idx]:
+                continue
+                
+            norm_l, norm_b = normalized_sources[source_idx]
+            if path.contains_point((norm_l, norm_b)):
+                contour['sources'].append(source_idx)
+                assigned[source_idx] = True
+    
+    unassigned = [i for i, status in enumerate(assigned) if not status]
+    return unassigned
+
+def create_ds9_region_files(contours, sources, unassigned, output_dir="ds9_contour_regions"):
+    os.makedirs(output_dir, exist_ok=True)
+    colors = ['red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'orange', 
+              'pink', 'lime', 'purple', 'brown', 'gray', 'olive', 'navy', 'teal']
+    
+    region_files = []
+    
+    for i, contour in enumerate(contours):
+        if not contour['sources']:
+            continue
+            
+        color = colors[i % len(colors)]
+        level_str = f"{contour['level']:.2e}".replace('.', 'p').replace('+', '')
+        filename = os.path.join(output_dir, f"contour_{contour['index']}_level_{level_str}.reg")
+        
+        with open(filename, 'w') as f:
+            f.write("# Region file format: DS9 version 4.1\n")
+            f.write(f"global color={color} dashlist=8 3 width=1 font=\"helvetica 10 normal roman\" ")
+            f.write("select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n")
+            f.write("galactic\n")
+            
+            for source_idx in contour['sources']:
+                l, b = sources[source_idx]
+                f.write(f'circle({l:.6f},{b:.6f},10") # text={{S{source_idx}}}\n')
+        
+        region_files.append(filename)
+        print(f"Created {filename} with {len(contour['sources'])} sources")
+    
+    if unassigned:
+        filename = os.path.join(output_dir, "unassigned_sources.reg")
+        with open(filename, 'w') as f:
+            f.write("# Region file format: DS9 version 4.1\n")
+            f.write("global color=white dashlist=8 3 width=2 font=\"helvetica 10 normal roman\" ")
+            f.write("select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n")
+            f.write("galactic\n")
+            
+            for source_idx in unassigned:
+                l, b = sources[source_idx]
+                f.write(f'circle({l:.6f},{b:.6f},10") # text={{U{source_idx}}}\n')
+        
+        region_files.append(filename)
+        print(f"Created {filename} with {len(unassigned)} unassigned sources")
+    
+    return region_files
+
+
+def add_contour_index_to_table(input_fits, output_fits, contour_assignments):
+    """Add contour index column to FITS table and save as a new file."""
+    with fits.open(input_fits) as hdul:
+        table = hdul[1].data
+        columns = hdul[1].columns
+
+        # Create array for contour indices (default -1 for unassigned)
+        contour_indices = np.full(len(table), -1, dtype=int)
+        for contour in contour_assignments:
+            for source_idx in contour['sources']:
+                contour_indices[source_idx] = contour['index']
+
+        # Add new column to table
+        new_col = fits.Column(name='contour_index', format='J', array=contour_indices)
+        new_hdu = fits.BinTableHDU.from_columns(columns + new_col, header=hdul[1].header)
+
+        # Write to new FITS file
+        hdul_new = fits.HDUList([hdul[0], new_hdu])
+        hdul_new.writeto(output_fits, overwrite=True)
+        print(f"Saved new FITS table with 'contour_index' column to {output_fits}") 
+
+def check_coordinate_consistency(sources, contours):
+    # Extract source longitude ranges
+    source_lons = [coord[0] for coord in sources]
+    source_min_lon = min(source_lons)
+    source_max_lon = max(source_lons)
+    
+    # Extract contour longitude ranges
+    contour_lons = []
+    for contour in contours:
+        lons = contour['vertices'][:,0]
+        contour_lons.extend(lons)
+    contour_min_lon = min(contour_lons)
+    contour_max_lon = max(contour_lons)
+    
+    print(f"Source longitude range: {source_min_lon:.2f} to {source_max_lon:.2f}")
+    print(f"Contour longitude range: {contour_min_lon:.2f} to {contour_max_lon:.2f}")
+    
+    # Check if ranges overlap
+    overlap = (source_min_lon <= contour_max_lon) and (source_max_lon >= contour_min_lon)
+    if overlap:
+        print("Coordinate systems appear consistent.")
+    else:
+        print("WARNING: Coordinate systems are inconsistent!")
+
+
+def main():
+    # Configuration - REPLACE WITH YOUR DATA
+    contour_file = "nH_analysis/test_contour_inner20deg_convolved.fits"
+    fits_table = "filtered_XMM_DR14.fits"  # Path to your source table
+    sources = points
+    output_dir = "ds9_contour_regions_test"
+    
+    # Step 1: Load contours
+    contours = load_contours(contour_file)
+    print(f"Loaded {len(contours)} contours")
+    check_coordinate_consistency(sources, contours)
+
+    # Step 2: Assign sources to contours
+    unassigned = assign_sources_to_contours(sources, contours)
+    assigned_count = sum(len(c['sources']) for c in contours)
+    print(f"Assigned {assigned_count} sources to contours")
+    print(f"Unassigned sources: {len(unassigned)}")
+    
+    # Step 3: Create DS9 region files
+    region_files = create_ds9_region_files(contours, sources, unassigned, output_dir)
+    print(f"\nCreated {len(region_files)} region files in '{output_dir}'")
+    
+    # Step 4: Add contour index to FITS table
+    add_contour_index_to_table(fits_table, "filtered_XMM_DR14_with_contour_test.fits", contours)
+    print("Contour indices added to FITS table")
+
+if __name__ == "__main__":
+    main()
+#extinction contour grouping
+import numpy as np
+from astropy.io import fits
+from matplotlib.path import Path
+import os
+
+def load_contours(fits_path):
+    with fits.open(fits_path) as hdul:
+        contour_ext = next((hdu for hdu in hdul if hdu.name == 'REGION'), hdul[1])
+        contour_data = contour_ext.data
+        header = contour_ext.header
+        
+        # Extract WCS parameters
+        crpix1 = header.get('TCRPX11', 1020.50)
+        crpix2 = header.get('TCRPX12', 102.50)
+        cdelt1 = header.get('TCDLT11', -0.010)
+        cdelt2 = header.get('TCDLT12', 0.010)
+        
+        contours = []
+        for i, row in enumerate(contour_data):
+            xs = row['X']
+            ys = row['Y']
+            
+            # Apply WCS transformation
+            lons = cdelt1 * (np.array(xs) - crpix1)
+            lats = cdelt2 * (np.array(ys) - crpix2)
+            
+            # Normalize longitude
+            lons = (lons + 180) % 360 - 180
+            
+            vertices = np.column_stack((lons, lats))
+            contours.append({
+                'index': i,
+                'level': row['CONTOUR_LEVEL'],
+                'vertices': vertices,
+                'sources': []
+            })
+    return contours
+
+def normalize_sources(sources):
+    return [((l + 180) % 360 - 180, b) for l, b in sources]
+
+def assign_sources_to_contours(sources, contours):
+    assigned = [False] * len(sources)
+    sorted_contours = sorted(contours, key=lambda c: (-c['level'], len(c['vertices'])))
+    
+    for contour in sorted_contours:
+        path = Path(contour['vertices'])
+        for src_idx, (l, b) in enumerate(sources):
+            if not assigned[src_idx] and path.contains_point((l, b)):
+                contour['sources'].append(src_idx)
+                assigned[src_idx] = True
+    return [i for i, status in enumerate(assigned) if not status]
+
+def create_ds9_region_files(contours, sources, unassigned, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    colors = ['red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'orange', 
+              'pink', 'lime', 'purple', 'brown', 'gray', 'olive', 'navy', 'teal']
+    
+    region_files = []
+    
+    for i, contour in enumerate(contours):
+        if not contour['sources']:
+            continue
+            
+        color = colors[i % len(colors)]
+        level_str = f"{contour['level']:.2e}".replace('.', 'p').replace('+', '')
+        filename = os.path.join(output_dir, f"contour_{contour['index']}_level_{level_str}.reg")
+        
+        with open(filename, 'w') as f:
+            f.write("# Region file format: DS9 version 4.1\n")
+            f.write(f"global color={color} dashlist=8 3 width=1 font=\"helvetica 10 normal roman\" ")
+            f.write("select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n")
+            f.write("galactic\n")
+            
+            for source_idx in contour['sources']:
+                l, b = sources[source_idx]
+                f.write(f'circle({l:.6f},{b:.6f},10") # text={{S{source_idx}}}\n')
+        
+        region_files.append(filename)
+        print(f"Created {filename} with {len(contour['sources'])} sources")
+    
+    if unassigned:
+        filename = os.path.join(output_dir, "unassigned_sources.reg")
+        with open(filename, 'w') as f:
+            f.write("# Region file format: DS9 version 4.1\n")
+            f.write("global color=white dashlist=8 3 width=2 font=\"helvetica 10 normal roman\" ")
+            f.write("select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n")
+            f.write("galactic\n")
+            
+            for source_idx in unassigned:
+                l, b = sources[source_idx]
+                f.write(f'circle({l:.6f},{b:.6f},10") # text={{U{source_idx}}}\n')
+        
+        region_files.append(filename)
+        print(f"Created {filename} with {len(unassigned)} unassigned sources")
+    
+    return region_files
+
+def add_contour_index_to_table(input_fits, output_fits, contour_assignments):
+    """Add contour index column to FITS table and save as a new file."""
+    with fits.open(input_fits) as hdul:
+        table = hdul[1].data
+        columns = hdul[1].columns
+
+        # Create array for contour indices (default -1 for unassigned)
+        contour_indices = np.full(len(table), -1, dtype=int)
+        for contour in contour_assignments:
+            for source_idx in contour['sources']:
+                contour_indices[source_idx] = contour['index']
+
+        # Add new column to table
+        new_col = fits.Column(name='contour_index', format='J', array=contour_indices)
+        new_hdu = fits.BinTableHDU.from_columns(columns + new_col, header=hdul[1].header)
+
+        # Write to new FITS file
+        hdul_new = fits.HDUList([hdul[0], new_hdu])
+        hdul_new.writeto(output_fits, overwrite=True)
+        print(f"Saved new FITS table with 'contour_index' column to {output_fits}") 
+        
+def main():
+    # Configuration
+    contour_file = "extinction_analysis/VVVextmap_mef_contour_perfect.fits"
+    source_file = "filtered_XMM_DR14.fits"  # Path to source catalog
+    sources = points  # Your source list (if loaded separately)
+    output_dir = "ds9_contour_regions_extinction_perfect"
+    output_fits = "extinction_analysis/filtered_XMM_DR14_with_contour.fits"
+    
+    # Step 1: Load contours
+    contours = load_contours(contour_file)
+    print(f"Loaded {len(contours)} contours")
+    
+    # Step 2: Normalize sources
+    sources_normalized = normalize_sources(sources)
+    
+    # Step 3: Assign sources
+    unassigned = assign_sources_to_contours(sources_normalized, contours)
+    assigned_count = sum(len(c['sources']) for c in contours)
+    print(f"Assigned {assigned_count} sources to contours")
+    print(f"Unassigned sources: {len(unassigned)}")
+    
+    # Step 4: Create region files with colors
+    region_files = create_ds9_region_files(contours, sources_normalized, unassigned, output_dir)
+    print(f"\nCreated {len(region_files)} region files in '{output_dir}'")
+    # Step 5: Update source catalog
+    add_contour_index_to_table(source_file, output_fits, contours)
+    
+    # Step 6: Galactic Center verification
+    #gc_contour = None
+   # for contour in contours:
+    #    if any(0.0 == sources_normalized[src_idx][0] and 0.0 == sources_normalized[src_idx][1] 
+    #           for src_idx in contour['sources']):
+   #         gc_contour = contour['index']
+   #         break
+   # print(f"Galactic Center (0,0) is in contour: {gc_contour}")
+
+if __name__ == "__main__":
+    main()
+from astropy.io import fits
+from astropy.wcs import WCS
+
+# Load FITS file
+with fits.open('nH_analysis/column_density_inner20deg_filled.fits') as hdul:
+    data_nH = hdul[0].data
+    header_nH = hdul[0].header
+    wcs_nH = WCS(header_nH)
+
+with fits.open('extinction_analysis/VVVextmap_mef_ciao_ready.fits') as hdul:
+    data_ext = hdul[0].data
+    header_ext = hdul[0].header
+    wcs_ext = WCS(header_ext)
+#Combine groups based on extinction and nH
+import numpy as np
+from astropy.io import fits
+count = 0
+
+def cross_reference_tables(extinction_fits, nh_fits,count):
+    id_list = xmmDR14_id[y]
+    """
+    Optimized cross-referencing of two FITS tables with contour assignments
+    Returns groups of sources in matching contour regions
+    """
+    # Load extinction table
+    with fits.open(extinction_fits) as hdul:
+        ext_data = hdul[1].data
+        ext_contours = ext_data['contour_index']
+        ext_src_id = ext_data['SrcID']
+    
+    # Load nH table and create lookup dictionary
+    with fits.open(nh_fits) as hdul:
+        nh_data = hdul[1].data
+        nh_contour_map = {row['SrcID']: row['contour_index'] for row in nh_data}
+    
+    # Create dictionary to store results
+    contour_groups = {}
+    
+    # Single pass through extinction data
+    for i, src_id in enumerate(ext_src_id):
+        ext_contour = ext_contours[i]
+        
+        # Skip unassigned sources
+        if ext_contour == -1:
+            continue
+        
+        # Get nH contour from lookup dictionary
+        nh_contour = nh_contour_map.get(src_id, -1)
+        if nh_contour == -1:
+            continue
+        
+        # Create group key
+        key = (ext_contour, nh_contour)
+        
+        # Initialize group if needed
+        if key not in contour_groups:
+            contour_groups[key] = []
+            count=count+1
+            
+        
+        # Add source to group
+        row_index = np.where(id_list == src_id)[0]
+        row_index=row_index[0]
+        l1 = l_filt[row_index]
+        b1 = b_filt[row_index]
+        x_pix1, y_pix1 = wcs_nH.wcs_world2pix(l1, b1, 0)
+        x_pix1 = int(round(float(x_pix1)))
+        y_pix1 = int(round(float(y_pix1)))
+        x_pix2, y_pix2 = wcs_ext.wcs_world2pix(l1, b1, 0)
+        x_pix2 = int(round(float(x_pix2)))
+        y_pix2 = int(round(float(y_pix2)))
+        value1 = np.float64(data_nH[y_pix1, x_pix1])
+        value2 = data_ext[y_pix2, x_pix2]
+        
+        contour_groups[key].append({
+            'src_id': src_id,
+            'extinction_index': value2,
+            'nh_index': np.float64(value1)
+        })
+    
+    return contour_groups, count
+
+# Configuration
+extinction_table = "extinction_analysis/filtered_XMM_DR14_with_contour.fits"
+nh_table = "nH_analysis/filtered_XMM_DR14_with_contour_test.fits"
+
+# Perform cross-referencing
+result,count = cross_reference_tables(extinction_table, nh_table,count)
+
+# Print results
+print(f"Found {len(result)} contour groups:")
+for (ext_cont, nh_cont), sources in result.items():
+    print(f"Extinction Contour {ext_cont} + nH Contour {nh_cont}:")
+    print(f"  Contains {len(sources)} sources")
+    if sources:
+        print(f"  Example source ID: {sources[0]['src_id']}\n")
+print(count)
+result
+#hardness grouping, needs result
+import math
+print(len(result))
+hardness_labels = ["-1","-0.5","0","0.5","1"]
+print(hardness_labels)
+count=0
+hardness = xmmDR14_EPhr4[y]
+id_list = xmmDR14_id[y]
+hardness_dict = {}
+for i, (key, contour) in enumerate(result.items()):
+    sources_in_group = result.get(key, [])
+    hardness_dict[key] = {}
+    for source_dict in sources_in_group:
+        
+        source_id = source_dict['src_id']
+        row_index = np.where(id_list == source_id)[0]
+        row_index=row_index[0]
+        if hardness[row_index] == 1:
+            if "1+" not in hardness_dict[key]:
+                hardness_dict[key]["1+"] = []
+                count=count+1
+                
+            hardness_dict[key]["1+"].append({
+                    'src_id': source_id,
+                    'hardness_ratio': hardness[row_index]
+                })
+        elif hardness[row_index] == 0:
+            if "0_exact" not in hardness_dict[key]:
+                hardness_dict[key]["0_exact"] = []
+                count=count+1
+                
+            hardness_dict[key]["0_exact"].append({
+                    'src_id': source_id,
+                    'hardness_ratio': hardness[row_index]
+                })
+        elif math.isnan(hardness[row_index]):
+            if "nan" not in hardness_dict[key]:
+                hardness_dict[key]["nan"] = []
+                count=count+1
+            hardness_dict[key]["nan"].append({
+                    'src_id': source_id,
+                    'hardness_ratio': hardness[row_index]
+                }) 
+        else:
+            for label in hardness_labels:
+                if hardness[row_index] <= float(label):
+                    if label not in hardness_dict[key]:
+                        hardness_dict[key][label] = []
+                        count=count+1
+                    
+                    hardness_dict[key][label].append({
+                        'src_id': source_id,
+                        'hardness_ratio': hardness[row_index]
+                    })
+                    break
+                
+print("Done")
+count
+#flux grouping, needs result
+import math
+count = 0
+print(len(result))
+flux_labels = ["1e-16","1e-14","1e-13","1e-11"]
+print(flux_labels)
+flux = fx2to12
+id_list = xmmDR14_id[y]
+flux_dict = {}
+for i, (key, contour) in enumerate(result.items()):
+    sources_in_group = result.get(key, [])
+    flux_dict[key] = {}
+    for source_dict in sources_in_group:
+        
+        source_id = source_dict['src_id']
+        row_index = np.where(id_list == source_id)[0]
+        row_index=row_index[0]
+        
+        if math.isnan(flux[row_index]):
+            if "nan" not in flux_dict[key]:
+                flux_dict[key]["nan"] = []
+                count = count+1
+            flux_dict[key]["nan"].append({
+                    'src_id': source_id,
+                    'flux': flux[row_index]
+                }) 
+        else:
+            for label in flux_labels:
+                if flux[row_index] <= float(label):
+                    if label not in flux_dict[key]:
+                        flux_dict[key][label] = []
+                        count = count+1
+                    
+                    flux_dict[key][label].append({
+                        'src_id': source_id,
+                        'nh': source_dict['nh_index'],
+                        'extinction': source_dict['extinction_index'],
+                        'flux': flux[row_index]
+                    })
+                    break
+                
+print("Done")
+count
+#Combine groups based on flux and hardness
+import numpy as np
+from astropy.io import fits
+count = 0
+
+def find_all_paths_to_value(d, target_value, path=None):
+    if path is None:
+        path = []
+    paths = []
+    if isinstance(d, dict):
+        for k, v in d.items():
+            new_path = path + [k]
+            if isinstance(v, (dict, list)):
+                paths.extend(find_all_paths_to_value(v, target_value, new_path))
+            else:
+                if v == target_value:
+                    paths.append(new_path)
+    elif isinstance(d, list):
+        for idx, v in enumerate(d):
+            new_path = path + [idx]
+            if isinstance(v, (dict, list)):
+                paths.extend(find_all_paths_to_value(v, target_value, new_path))
+            else:
+                if v == target_value:
+                    paths.append(new_path)
+    return paths
+
+def cross_reference_tables(flux_dict, hardness_dict,count):
+
+    # Create dictionary to store results
+    combined_groups = {}
+    
+    for i, (key, inner_dict) in enumerate(flux_dict.items()):
+        combined_groups[key] = {}
+        for i, (inner_key, sources) in enumerate(inner_dict.items()):
+            flux_key = inner_key
+            for source in sources:
+                flux = source.get('flux')
+                source_id = source.get('src_id')
+                hardness_keys = find_all_paths_to_value(hardness_dict[key],source_id)
+                hardness_path = hardness_keys[0]
+                hardness = hardness_dict[key][hardness_path[0]][0]['hardness_ratio']
+                if math.isnan(hardness):
+                    continue
+            
+                inner_key = (flux_key,hardness_path[0])
+                if inner_key not in combined_groups[key]:
+                    combined_groups[key][inner_key] = []
+                    count = count+1
+                    
+            
+                combined_groups[key][inner_key].append({
+                    'src_id': source_id,
+                    'nh': source['nh'],
+                    'extinction': source['extinction'],
+                    'flux': flux,
+                    'hardness': hardness
+                })
+                
+                
+        
+    
+    return combined_groups, count
+
+# Configuration
+
+# Perform cross-referencing
+combined_dict,count = cross_reference_tables(flux_dict, hardness_dict,count)
+
+# Print results
+print(f"Found {len(combined_dict)} contour groups:")
+#for (ext_cont, nh_cont), sources in result.items():
+#    print(f"Extinction Contour {ext_cont} + nH Contour {nh_cont}:")
+#    print(f"  Contains {len(sources)} sources")
+#    if sources:
+#        print(f"  Example source ID: {sources[0]['src_id']}\n")
+print(count)
+combined_dict
+def merge_small_source_groups(data,count):
+    
+    """
+    Merge all single-source groups that are within a certain galactic longitude/latitude
+    and whose keys are within a certain error range.
+
+    Parameters:
+    - data: dict of dicts, each level keyed by a tuple, innermost value is a list of sources
+    - l_idx, b_idx: indices in the tuple keys for longitude and latitude
+    - l_tol, b_tol: max allowed difference in longitude and latitude for merging
+    - key_error_tols: dict mapping index to allowed error for other tuple elements (e.g., {2: 0.05})
+
+    Returns:
+    - merged_groups: list of lists, each list is a merged group of sources
+    """
+
+    
+
+    # Flatten all single-source groups with their keys
+    small_groups = []
+    for outer_key, inner_dict in data.items():
+        for inner_key, sources in inner_dict.items():
+            if isinstance(sources, list) and len(sources) <= 5:
+                for k,source in enumerate(sources):
+                    small_groups.append({
+                        'outer_key': outer_key,
+                        'inner_key': inner_key,
+                        'source': source
+                    })
+
+    merged = []
+    used = set()
+
+    for i, entry in enumerate(small_groups):
+        src_id = entry['source']['src_id']
+        if src_id in used:
+            continue
+        group = [entry]
+        used.add(src_id)
+        row_index = np.where(id_list == entry['source']['src_id'])[0]
+        row_index=row_index[0]
+        l1 = l_filt[row_index]
+        b1 = b_filt[row_index]
+        key1 = entry['outer_key']
+        inner1 = entry['inner_key']
+
+        for j, other in enumerate(small_groups):
+            other_src_id = other['source']['src_id']
+            if j == i or other_src_id in used:
+                continue
+            row_index2 = np.where(id_list == other['source']['src_id'])[0]
+            row_index2 = row_index2[0]
+            l2 = l_filt[row_index2]
+            b2 = b_filt[row_index2]
+            key2 = other['outer_key']
+            inner2 = other['inner_key']
+            
+            # Check galactic coordinate proximity
+            if abs(l1 - l2) > 1 or abs(b1 - b2) > 1: 
+                continue
+            # Check all other key error tolerances
+            if abs(np.log10(entry['source']['nh'])-np.log10(other['source']['nh'])) > 0.5:
+                
+                continue
+            
+            if abs(entry['source']['extinction']-other['source']['extinction']) > 7:
+                
+                continue
+               
+            if abs(np.log10(entry['source']['flux'])-np.log10(other['source']['flux'])) > 1.7:
+                
+                continue
+            
+            if abs(entry['source']['hardness']-other['source']['hardness']) > 0.5:
+                
+                continue
+            
+            group.append(other)
+            used.add(other_src_id)
+            count=count+1
+
+        merged.append(group)
+    
+    count1=0
+    for groups in merged:
+        count1=count1+len(groups)
+    print(count1)
+    merged_dict = {}
+    print(len(used))
+    for group in merged:
+        # Gather all unique outer and inner keys from the group
+        outer_keys = tuple(sorted(set(entry['outer_key'] for entry in group)))
+        inner_keys = tuple(sorted(set(entry['inner_key'] for entry in group)))
+        # Gather all sources in this group
+        sources = [entry['source'] for entry in group]
+
+        if outer_keys not in merged_dict:
+            merged_dict[outer_keys] = {}
+        if inner_keys not in merged_dict[outer_keys]:
+            merged_dict[outer_keys][inner_keys] = []
+        merged_dict[outer_keys][inner_keys].extend(sources)
+
+    return merged_dict,count
+count=0
+merged_group_small_test,count = merge_small_source_groups(combined_dict,count)
+print(count)
+#Remove small groups and merge with resorted/combined small groups
+def remove_small_source_groups(data):
+    data_copy = {}
+    for outer_key, inner_dict in data.items():
+        new_inner = {}
+        for inner_key, sources in inner_dict.items():
+            if not (isinstance(sources, list) and len(sources) <= 5):
+                new_inner[inner_key] = sources
+        if new_inner:
+            data_copy[outer_key] = new_inner
+    return data_copy
+
+combined_dict_copy = remove_small_source_groups(combined_dict)
+
+def merge_dictionaries(dict1, dict2):
+    """
+    Merge two two-layer dictionaries. dict2 entries overwrite dict1 where keys overlap.
+    """
+    result = dict1.copy()
+    for outer_key, inner_dict in dict2.items():
+        if outer_key not in result:
+            result[outer_key] = {}
+        for inner_key, sources in inner_dict.items():
+            result[outer_key][inner_key] = sources
+    return result
+final_test = merge_dictionaries(combined_dict_copy,merged_group_small_test)
+#dist sig clipping
+from astropy.stats import sigma_clip
+import numpy as np
+combined_dict_test_dist = final_test.copy()
+count1 = 1
+count3 = 0
+count_list = []
+while count1 > 0 and count3 < 1000:
+    all_meanl = []
+    all_meanb = []
+    outliers = 0
+    clipped_dict = {}
+    remain_dict = {}
+    count1=0
+    count2=0
+    for i, (key, inner_dict) in enumerate(combined_dict_test_dist.items()): 
+        if key not in clipped_dict:
+            clipped_dict[key] = {}
+        if key not in remain_dict:
+            remain_dict[key] = {}
+        for j, (inner_key, sources) in enumerate(inner_dict.items()):
+            if inner_key not in clipped_dict[key]:
+                clipped_dict[key][inner_key] = []
+            if inner_key not in remain_dict[key] or len(sources) != 1:
+                remain_dict[key][inner_key] = {}
+                remain_dict[key][inner_key]['sources'] = []
+
+            meanl = []
+            meanb = []
+            if count3 == 0:
+                for source in sources:
+                    row_index = np.where(id_list == source['src_id'])[0]
+                    row_index=row_index[0]
+                    meanl.append(l_filt[row_index])
+                    meanb.append(b_filt[row_index])
+            else:
+                for source in sources['sources']:
+                    row_index = np.where(id_list == source['src_id'])[0]
+                    row_index=row_index[0]
+                    meanl.append(l_filt[row_index])
+                    meanb.append(b_filt[row_index])
+            meanl = np.array(meanl, dtype=np.float64)
+            meanb = np.array(meanb, dtype=np.float64)
+            all_meanl.append(np.mean(meanl))
+            all_meanb.append(np.mean(meanb))
+            # Perform sigma clipping (e.g., 3-sigma)
+
+
+            mask_l = sigma_clip(all_meanl, sigma=2, maxiters=5).mask
+            mask_b = sigma_clip(all_meanb, sigma=2, maxiters=5).mask
+
+            joint_mask = mask_l | mask_b  # True if outlier in l or b
+            
+            outlier_indices = np.where(joint_mask)[0]
+            outliers = outliers + len(outlier_indices)
+            if count3 == 0:
+                for i, source in enumerate(sources):
+                    if i in outlier_indices:
+                        count1 = count1+1
+                    if len(sources) == 1:
+                        count2 = count2+1
+                    if i in outlier_indices or len(sources) == 1:
+                        clipped_dict[key][inner_key].append({
+                            'src_id': source['src_id'],
+                            'nh': source['nh'],
+                            'extinction': source['extinction'],
+                            'flux': source['flux'],
+                            'hardness': source['hardness']
+                        })
+                    else:
+                        remain_dict[key][inner_key]['sources'].append({
+                            'src_id': source['src_id'],
+                            'nh': source['nh'],
+                            'extinction': source['extinction'],
+                            'flux': source['flux'],
+                            'hardness': source['hardness']
+                        })
+            else:
+                for i, source in enumerate(sources['sources']):
+                    if i in outlier_indices:
+                        count1 = count1+1
+                    if len(sources) == 1:
+                        count2 = count2+1
+                    if i in outlier_indices or len(sources) == 1:
+                        clipped_dict[key][inner_key].append({
+                            'src_id': source['src_id'],
+                            'nh': source['nh'],
+                            'extinction': source['extinction'],
+                            'flux': source['flux'],
+                            'hardness': source['hardness']
+                        })
+                    else:
+                        remain_dict[key][inner_key]['sources'].append({
+                            'src_id': source['src_id'],
+                            'nh': source['nh'],
+                            'extinction': source['extinction'],
+                            'flux': source['flux'],
+                            'hardness': source['hardness']
+                        })
+            l_list = []
+            b_list = []
+            hardness_list = []
+            flux_list = []
+            nH_list = []
+            extinction_list = []
+            for source in remain_dict[key][inner_key]['sources']:
+                if len(remain_dict[key][inner_key]['sources']) != 0: 
+                    nH_list.append(source['nh'])
+                    extinction_list.append(source['extinction'])
+                    flux_list.append(source['flux'])
+                    hardness_list.append(source['hardness'])
+                    row_index = np.where(id_list == source['src_id'])[0]
+                    row_index=row_index[0]
+                    l_list.append(l_filt[row_index])
+                    b_list.append(b_filt[row_index])
+            if len(remain_dict[key][inner_key]['sources']) != 0: 
+                remain_dict[key][inner_key]['meta']=[]
+                remain_dict[key][inner_key]['meta'].append({
+                    'mean_l': np.mean(l_list),
+                    'mean_b': np.mean(b_list),
+                    'mean_hardness': np.mean(hardness_list),
+                    'mean_flux': np.mean(flux_list),
+                    'mean_nH': np.mean(nH_list),
+                    'mean_extinction': np.mean(extinction_list)
+                })
+
+    print(count1,count2)
+    combined_dict_test_dist = {}
+    count=0
+    for i, (key, inner_dict) in enumerate(clipped_dict.items()):
+        for j, (inner_key, sources) in enumerate(inner_dict.items()):
+            if len(sources) != 0:
+
+                for k, source in enumerate(sources):
+                    flux_minl = 1000
+                    flux_minb = 1000
+                    flux_key = ['','']
+                    row_index = np.where(id_list == source['src_id'])[0]
+                    row_index=row_index[0]
+                    l = l_filt[row_index]
+                    b = b_filt[row_index]
+                    for mean_key, mean_inner_dict in remain_dict.items():
+                        if mean_key not in combined_dict_test_dist:
+                            combined_dict_test_dist[mean_key] = {}
+                        for mean_inner_key, mean_sources in mean_inner_dict.items():
+                            if len(mean_sources['sources']) != 0:
+                                if mean_inner_key not in combined_dict_test_dist[mean_key]:
+                                    combined_dict_test_dist[mean_key][mean_inner_key] = {}
+                                    combined_dict_test_dist[mean_key][mean_inner_key]['sources'] = mean_sources['sources'].copy()
+                                    combined_dict_test_dist[mean_key][mean_inner_key]['meta'] = mean_sources['meta'].copy()
+                                mean_list = mean_sources['meta']
+                                mean_list = mean_list[0]
+
+                                if abs(l-mean_list['mean_l']) < flux_minl and abs(b-mean_list['mean_b']) < flux_minb:
+                                    flux_minl = abs(l-mean_list['mean_l'])
+                                    flux_minb = abs(b-mean_list['mean_b'])
+                                    flux_key = [mean_key,mean_inner_key]
+                    print(flux_key)
+                    mean_list = remain_dict[flux_key[0]][flux_key[1]]['meta'][0]
+                    
+                    if abs(source['hardness']-mean_list['mean_hardness']) < 0.5 and abs(np.log10(source['flux'])-np.log10(mean_list['mean_flux'])) < 1.7 and abs(source['extinction']-mean_list['mean_extinction']) < 7 and abs(np.log10(np.float64(source['nh']))-np.log10(np.float64(mean_list['mean_nH']))) < 0.5:
+                        if source not in combined_dict_test_dist[flux_key[0]][flux_key[1]]['sources']:
+                            combined_dict_test_dist[flux_key[0]][flux_key[1]]['sources'].append(source)
+                    else:
+                        if key not in combined_dict_test_dist:
+                            combined_dict_test_dist[key] = {}
+                        if inner_key not in combined_dict_test_dist[key]:
+                            combined_dict_test_dist[key][inner_key] = {}
+                            combined_dict_test_dist[key][inner_key]['sources'] = []
+
+                        combined_dict_test_dist[key][inner_key]['sources'].append(source)
+    print(count) 
+    count_list.append(count1)
+    #if count3 > 0:
+       # if count_list[count3-1] == count_list[count3]:
+       #     break
+    count3 = count3+1
+#nh sig clipping
+from astropy.stats import sigma_clip
+import numpy as np
+loop=['nh','flux','extinction','hardness']
+loop_num = 2
+count4 = 0
+clip_list=[]
+count5=0
+for x in range(loop_num):
+    #print(count5)
+    for clip_type in loop:
+        print(count4)
+        if count4 == 0:
+            #print('flag')
+            #print(clip_type)
+            combined_dict_test = combined_dict_test_dist.copy()
+        else:
+            combined_dict_test = combined_dict_test
+        count1 = 1
+        count3 = 0
+        count_list = []
+        while count1 > 0 and count3 < 1000:
+            all_mean = []
+            outliers = 0
+            clipped_dict = {}
+            remain_dict = {}
+            count1=0
+            count2=0
+            for i, (key, inner_dict) in enumerate(combined_dict_test.items()): 
+                if key not in clipped_dict:
+                    clipped_dict[key] = {}
+                if key not in remain_dict:
+                    remain_dict[key] = {}
+                for j, (inner_key, sources) in enumerate(inner_dict.items()):
+                    if inner_key not in clipped_dict[key]:
+                        clipped_dict[key][inner_key] = []
+                    if inner_key not in remain_dict[key] or len(sources) != 1:
+                        remain_dict[key][inner_key] = {}
+                        remain_dict[key][inner_key]['sources'] = []
+
+                    mean = []
+                    #if count3 == 0 and count4 == 0:
+                    #    for source in sources:
+                            
+                    #        mean.append(source[clip_type])
+                    #else:
+                    for source in sources['sources']:
+                        mean.append(source[clip_type])
+                    mean = np.array(mean, dtype=np.float64)
+                    all_mean.append(np.mean(mean))
+                    # Perform sigma clipping (e.g., 3-sigma)
+                    clipped = sigma_clip(mean, sigma=2, maxiters=5)
+                    # Boolean mask: True for values that are clipped (outliers)
+                    outliers_mask = clipped.mask
+                    # Indices of outliers
+                    outlier_indices = np.where(outliers_mask)[0]
+                    outliers = outliers + len(outlier_indices)
+                    '''if count3 ==0 and count4 == 0:
+                        for i, source in enumerate(sources):
+                            if i in outlier_indices:
+                                count1 = count1+1
+                            if len(sources) == 1:
+                                count2 = count2+1
+                            if i in outlier_indices or len(sources) == 1:
+                                clipped_dict[key][inner_key].append({
+                                    'src_id': source['src_id'],
+                                    'nh': source['nh'],
+                                    'extinction': source['extinction'],
+                                    'flux': source['flux'],
+                                    'hardness': source['hardness']
+                                })
+                            else:
+                                remain_dict[key][inner_key]['sources'].append({
+                                    'src_id': source['src_id'],
+                                    'nh': source['nh'],
+                                    'extinction': source['extinction'],
+                                    'flux': source['flux'],
+                                    'hardness': source['hardness']
+                                })
+                    else:'''
+                    for i, source in enumerate(sources['sources']):
+                        if i in outlier_indices:
+                            count1 = count1+1
+                        if len(sources) == 1:
+                            count2 = count2+1
+                        if i in outlier_indices or len(sources) == 1:
+                            clipped_dict[key][inner_key].append({
+                                'src_id': source['src_id'],
+                                'nh': source['nh'],
+                                'extinction': source['extinction'],
+                                'flux': source['flux'],
+                                'hardness': source['hardness']
+                            })
+                        else:
+                            remain_dict[key][inner_key]['sources'].append({
+                                'src_id': source['src_id'],
+                                'nh': source['nh'],
+                                'extinction': source['extinction'],
+                                'flux': source['flux'],
+                                'hardness': source['hardness']
+                            })
+                    l_list = []
+                    b_list = []
+                    hardness_list = []
+                    flux_list = []
+                    nH_list = []
+                    extinction_list = []
+                    for source in remain_dict[key][inner_key]['sources']:
+                        if len(remain_dict[key][inner_key]['sources']) != 0: 
+                            nH_list.append(source['nh'])
+                            extinction_list.append(source['extinction'])
+                            flux_list.append(source['flux'])
+                            hardness_list.append(source['hardness'])
+                            row_index = np.where(id_list == source['src_id'])[0]
+                            row_index=row_index[0]
+                            l_list.append(l_filt[row_index])
+                            b_list.append(b_filt[row_index])
+                    if len(remain_dict[key][inner_key]['sources']) != 0: 
+                        remain_dict[key][inner_key]['meta']=[]
+                        remain_dict[key][inner_key]['meta'].append({
+                            'mean_l': np.mean(l_list),
+                            'mean_b': np.mean(b_list),
+                            'mean_hardness': np.mean(hardness_list),
+                            'mean_flux': np.mean(flux_list),
+                            'mean_nH': np.mean(nH_list),
+                            'mean_extinction': np.mean(extinction_list)
+                        })
+
+            #print(count1,count2)
+            combined_dict_test = {}
+            count=0
+            for i, (key, inner_dict) in enumerate(clipped_dict.items()):
+                for j, (inner_key, sources) in enumerate(inner_dict.items()):
+                    if len(sources) != 0:
+                        for k, source in enumerate(sources):
+                            flux_min = 1000
+                            flux_key = ['','']
+                            row_index = np.where(id_list == source['src_id'])[0]
+                            row_index=row_index[0]
+                            l = l_filt[row_index]
+                            b = b_filt[row_index]
+                            check = False
+                            for mean_key, mean_inner_dict in remain_dict.items():
+                                if mean_key not in combined_dict_test:
+                                    combined_dict_test[mean_key] = {}
+                                for mean_inner_key, mean_sources in mean_inner_dict.items():
+                                    if len(mean_sources['sources']) != 0:
+                                        if mean_inner_key not in combined_dict_test[mean_key]:
+                                            combined_dict_test[mean_key][mean_inner_key] = {}
+                                            combined_dict_test[mean_key][mean_inner_key]['sources'] = mean_sources['sources'].copy()
+                                            combined_dict_test[mean_key][mean_inner_key]['meta'] = mean_sources['meta'].copy()
+                                        mean_list = mean_sources['meta']
+                                        mean_list = mean_list[0]
+                                        boolean_expr = 0
+                                        if clip_type == 'nh':
+                                            boolean_expr = abs(np.log10(np.float64(source['nh']))-np.log10(np.float64(mean_list['mean_nH'])))
+                                        elif clip_type == 'flux':
+                                            boolean_expr = abs(np.log10(np.float64(source['flux']))-np.log10(np.float64(mean_list['mean_flux'])))
+                                        elif clip_type == 'extinction':
+                                            boolean_expr = abs(source['extinction']-mean_list['mean_extinction'])
+                                        else:
+                                            boolean_expr = abs(source['hardness']-mean_list['mean_hardness'])
+                                        
+                                        if boolean_expr < flux_min and abs(l-mean_list['mean_l']) < 1.5 and abs(b-mean_list['mean_b']) < 1.5:
+                                            flux_min = boolean_expr
+                                            flux_key = [mean_key,mean_inner_key]
+                                            check=True 
+                            if not check:
+                                print('flag')
+                                #print(count4)
+                                        
+                            #print(flux_key)
+                            mean_list = remain_dict[flux_key[0]][flux_key[1]]['meta'][0]
+                            boolean = False
+                            if clip_type == 'nh':
+                                boolean =  (abs(source['hardness']-mean_list['mean_hardness']) < 0.5 and abs(np.log10(source['flux'])-np.log10(mean_list['mean_flux'])) < 1.7 and abs(source['extinction']-mean_list['mean_extinction']) < 7)
+                            elif clip_type == 'flux':
+                                boolean = (abs(source['hardness']-mean_list['mean_hardness']) < 0.5 and abs(np.log10(np.float64(source['nh']))-np.log10(np.float64(mean_list['mean_nH']))) < 0.5 and abs(source['extinction']-mean_list['mean_extinction']) < 7)
+                            elif clip_type == 'extinction':
+                                boolean = (abs(source['hardness']-mean_list['mean_hardness']) < 0.5 and abs(np.log10(np.float64(source['nh']))-np.log10(np.float64(mean_list['mean_nH']))) < 0.5 and abs(np.log10(source['flux'])-np.log10(mean_list['mean_flux'])) < 1.7)
+                            else:
+                                boolean_expr = (abs(source['extinction']-mean_list['mean_extinction']) < 7 and abs(np.log10(np.float64(source['nh']))-np.log10(np.float64(mean_list['mean_nH']))) < 0.5 and abs(np.log10(source['flux'])-np.log10(mean_list['mean_flux'])) < 1.7)
+                            if boolean_expr:
+                                if source not in combined_dict_test[flux_key[0]][flux_key[1]]['sources']:
+                                    combined_dict_test[flux_key[0]][flux_key[1]]['sources'].append(source)
+                            else:
+                                if key not in combined_dict_test:
+                                    combined_dict_test[key] = {}
+                                if inner_key not in combined_dict_test[key]:
+                                    combined_dict_test[key][inner_key] = {}
+                                    combined_dict_test[key][inner_key]['sources'] = []
+
+                                combined_dict_test[key][inner_key]['sources'].append(source)     
+            #print(count1) 
+            count_list.append(count1)
+            if count3 > 0:
+                if count_list[count3-1] == count_list[count3]:
+                    break
+            count3 = count3+1
+            
+        count4 = count4+1
+        for key, inner_dict in combined_dict_test.items():
+            for inner_key, sources in inner_dict.items():
+                if len(combined_dict_test[key][inner_key]['sources']) > 1:
+                    l_list = []
+                    b_list = []
+                    hardness_list = []
+                    flux_list = []
+                    nH_list = []
+                    extinction_list = []
+                    combined_dict_test[key][inner_key]['meta'] = []
+                    for source in sources['sources']:
+                        if len(combined_dict_test[key][inner_key]['sources']) != 0: 
+                            nH_list.append(source['nh'])
+                            extinction_list.append(source['extinction'])
+                            flux_list.append(source['flux'])
+                            hardness_list.append(source['hardness'])
+                            row_index = np.where(id_list == source['src_id'])[0]
+                            row_index=row_index[0]
+                            l_list.append(l_filt[row_index])
+                            b_list.append(b_filt[row_index])
+                    if len(combined_dict_test[key][inner_key]['sources']) != 0: 
+                        combined_dict_test[key][inner_key]['meta'].append({
+                            'mean_l': np.mean(l_list),
+                            'mean_b': np.mean(b_list),
+                            'mean_hardness': np.mean(hardness_list),
+                            'mean_flux': np.mean(flux_list),
+                            'mean_nH': np.mean(nH_list),
+                            'mean_extinction': np.mean(extinction_list)
+                       })
+    clip_list.append(count1)
+    count5 = count5+1
+#Print information on the combined dictionary
+count_mult = 0
+length_list = []
+total_mult = 0
+combined_groups_multiple = {}
+combined_groups_one = {}
+count_one = 0
+total_one = 0
+
+for i, (key, inner_dict) in enumerate(combined_dict_test4.items()):
+        combined_groups_multiple[key] = {}
+        combined_groups_one[key] = {}
+        for i, (inner_key, sources) in enumerate(inner_dict.items()):
+            if len(sources['sources']) > 1:
+                count_mult = count_mult + 1
+                length_list.append(len(sources['sources']))
+                total_mult = total_mult + len(sources['sources'])
+                combined_groups_multiple[key][inner_key]={}
+                combined_groups_multiple[key][inner_key]['sources'] = []
+                combined_groups_multiple[key][inner_key]['meta'] = []
+                combined_groups_multiple[key][inner_key]['sources'].append(sources['sources'])
+                
+                combined_groups_multiple[key][inner_key]['meta'].append(sources['meta'])
+            else:
+                count_one = count_one + 1
+                total_one = total_one + len(sources['sources'])
+                combined_groups_one[key][inner_key]={}
+                combined_groups_one[key][inner_key]['sources'] = []
+                combined_groups_one[key][inner_key]['sources'].append(sources['sources'])
+                
+                
+print(count_one)
+print(total_one)
+print(count_mult)
+print(total_mult)
+#Histogram of groups above 2
+import matplotlib.pyplot as plt
+print(np.max(length_list))
+plt.rcParams['xtick.top'] = False
+data_min = np.min(length_list)
+data_max = np.max(length_list)
+print(np.min(length_list))
+n_bins = int(np.ceil(np.sqrt(len(length_list)*3.5)))
+
+# Calculate bin width
+bin_width = (data_max - data_min) / n_bins
+
+# Create bin edges
+bins = np.arange(data_min, data_max + bin_width, bin_width)
+#nbins = np.logspace(np.log10(3e-18),np.log10(np.amax(xmmDR14_sfx2to12[glist_nodupes])),28)
+#nbins = np.logspace(np.log10(np.min(nh_val)),np.log10(np.max(nh_val)),50)
+plt.figure(figsize=(8.,4.5))
+n, bins, patches  = plt.hist(length_list, color='c', edgecolor='k', bins=bins, alpha=0.75)
+# Create the histogram and get the counts and bin edges
+
+# Sum the counts for specific bins
+# For example, sum the counts of the first 3 bins
+sum_first_three_bins = np.sum(n[:4])
+plt.xlabel('Number of Sources')
+plt.ylabel('Number of Groups')
+#plt.legend(loc='upper right', labelspacing=0.3, handletextpad=0.35, borderaxespad=0.3, handlelength=1.2, frameon=False, alignment='right')#, markerfirst=False
+plt.yscale('log')
+#plt.xlim(np.min(length_list),np.max(length_list))
+plt.title('Amount of Sources in Groups')
+
+plt.ylim(1,100)
+plt.xlim(2,60)
+plt.tick_params(axis='x', which='both', direction='out')
+print(sum_first_three_bins)
+#Check for duplicated just in case
+def count_unique_duplicates(merged_dict):
+    seen = set()
+    duplicates = set()
+    for outer_key, inner_dict in merged_dict.items():
+        for inner_key, sources in inner_dict.items():
+            for source in sources['sources']:
+                src_id = source['src_id']
+                if src_id in seen:
+                    duplicates.add(src_id)
+                else:
+                    seen.add(src_id)
+    return len(duplicates)
+
+count = count_unique_duplicates(combined_dict_test)
+count
